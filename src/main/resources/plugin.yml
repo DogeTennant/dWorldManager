@@ -1,0 +1,48 @@
+name: dWorldManager
+version: '${project.version}'
+main: com.dogetennant.dworldmanager.DWorldManager
+api-version: '26.1'
+description: Prevents items and value from leaking out of a persistent build world across a survival-world wipe, via permanent block grandfathering and tainted-container clearing.
+author: DogeTennant
+
+# Paper downloads these from Maven Central at startup so we don't bundle them.
+# SQLite JDBC is already on Paper's own classpath; only MySQL needs declaring.
+libraries:
+  - com.mysql:mysql-connector-j:8.3.0
+
+commands:
+  dworldmanager:
+    description: dWorldManager admin commands
+    usage: /dwm <command>
+    aliases: [ dwm ]
+
+permissions:
+
+  #  Admin
+  dworldmanager.admin:
+    description: Access to all admin commands and bypasses
+    default: op
+
+  dworldmanager.reload:
+    description: Reload the plugin config
+    default: op
+
+  dworldmanager.migrate:
+    description: Run SQLite -> MySQL data migration
+    default: op
+
+  dworldmanager.freeze:
+    description: Scan a world and grandfather (freeze) restricted-material blocks
+    default: op
+
+  dworldmanager.unfreeze:
+    description: Unfreeze grandfathered blocks so they can be broken again
+    default: op
+
+  dworldmanager.clearcontainers:
+    description: Clear tainted containers/entities and dropped items in a world
+    default: op
+
+  dworldmanager.audit:
+    description: View the frozen-blocks listing and the unfreeze audit log
+    default: op

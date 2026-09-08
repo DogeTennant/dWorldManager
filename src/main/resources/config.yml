@@ -1,0 +1,124 @@
+#
+# dWorldManager Configuration
+#
+
+# Verbose logging for container tainting/clearing decisions - noisy, only
+# turn this on while diagnosing why something did or didn't get tainted/cleared.
+debug: false
+
+#
+# Storage
+#
+storage:
+  # Options: sqlite, mysql
+  # sqlite works out of the box with no setup.
+  # mysql is recommended for larger servers, or to share a database with other plugins.
+  type: sqlite
+
+  # Prefix added to all table names.
+  # Useful when multiple plugins share one MySQL database.
+  # Example: "dwm_" -> tables become dwm_frozen_blocks, dwm_unfreeze_log, etc.
+  # Leave empty for no prefix.
+  table-prefix: ""
+
+  mysql:
+    host: localhost
+    port: 3306
+    database: dworldmanager
+    username: root
+    password: ''
+    pool-size: 10
+    connection-timeout: 30000
+    max-lifetime: 1800000
+
+#
+# Blocks (permanent grandfathering)
+#
+blocks:
+  # Materials that get permanently grandfathered (frozen) when frozen via
+  # /dwm freeze, so they can never be mined for their original value.
+  # Use the Bukkit Material enum name, e.g. NETHERITE_BLOCK, DIAMOND_BLOCK.
+  #
+  # This same list also controls player-placement tracking for /dwm freeze
+  # --placed-only: only blocks of a material listed here get their placement
+  # recorded (BlockPlaceEvent -> a small "placed_blocks" table), so add ore
+  # variants here too (e.g. DIAMOND_ORE, DEEPSLATE_DIAMOND_ORE) if you want
+  # to be able to freeze player-placed ore while leaving natural veins alone.
+  restricted-materials:
+    - NETHERITE_BLOCK
+    - DIAMOND_BLOCK
+    - EMERALD_BLOCK
+    - GOLD_BLOCK
+    - BEACON
+
+  # Safety cap for full-world freeze scans (in blocks, per side of the
+  # world border). If a world's border is bigger than this, /dwm freeze
+  # refuses to run - set a real border on the world first. This exists so
+  # a forgotten/unset border can't trigger a scan across millions of chunks.
+  max-scan-border-size: 20000
+
+  # How many milliseconds of work a full-world scan (freeze or clearcontainers)
+  # is allowed to spend per server tick. Higher = faster scan, but more lag
+  # while it runs. Keep well under 50 (a full tick) - other plugins/the server
+  # need the rest of that budget too.
+  scan-tick-budget-ms: 25
+
+  # Safety cap for /dwm freeze region (total blocks in the selected box).
+  # Refuses to run if the box is bigger than this.
+  max-region-volume: 2000000
+
+#
+# Messages
+#
+# Every player/console-facing message dWorldManager sends, so wording can be
+# customized without touching the plugin. Supports "&" colour codes and the
+# %placeholder% tokens listed after each message.
+#
+messages:
+  no-permission: "&cYou don't have permission to do that."
+  unknown-subcommand: "&cUnknown subcommand '%input%'. Run /dwm for a list."
+  unknown-world: "&cUnknown world: %world%"
+  unknown-material: "&cUnknown material: %material%"
+  player-only: "&cThis command can only be run by a player."
+  no-target-block: "&cYou're not looking at a block."
+
+  reload-success: "&adWorldManager config reloaded."
+
+  freeze-no-materials: "&cNo materials given and none configured in blocks.restricted-materials - nothing to freeze."
+
+  # %count% = number of restricted materials being scanned for, %world%,
+  # %scope% = " (player-placed only)" or empty, depending on --placed-only
+  freeze-scanning: "&eScanning '%world%' for %count% material(s) to freeze%scope% - this may take a while, progress will be reported periodically..."
+  # %scanned%, %total%, %percent%
+  freeze-progress: "&eFreeze scan: %scanned% / %total% chunks (%percent%%)"
+  # %count%, %world%, %scope%
+  freeze-complete: "&aFreeze scan complete: %count% block(s) grandfathered in '%world%'%scope%."
+  # %count%, %world%, %scope%
+  freeze-region-complete: "&aFreeze region complete: %count% block(s) grandfathered in '%world%'%scope%."
+  # %material%, %x%, %y%, %z%
+  freeze-block-success: "&a%material% at %x%,%y%,%z% is now frozen."
+  # %material%, %x%, %y%, %z%
+  freeze-block-already: "&eThat block (%material% at %x%,%y%,%z%) is already frozen."
+  # Shown to a player when they try to break a frozen block
+  freeze-block-break-denied: "&cThis block has been grandfathered and can no longer be broken."
+  # %volume%, %max%
+  region-too-big: "&cThat region is %volume% blocks - larger than the configured safety cap (blocks.max-region-volume: %max%). Select a smaller region."
+  # %world%, %max%
+  border-too-big: "&cWorld border for '%world%' is larger than the configured safety cap (blocks.max-scan-border-size: %max%). Set a real border on this world first."
+
+  # %count%, %world%
+  unfreeze-world-success: "&a%count% block(s) unfrozen in '%world%'."
+  # %count%, %material%, %world%
+  unfreeze-material-success: "&a%count% block(s) of %material% unfrozen in '%world%'."
+  # %count%, %world%
+  unfreeze-region-success: "&a%count% block(s) unfrozen in the selected region in '%world%'."
+  # %material%, %x%, %y%, %z%
+  unfreeze-block-success: "&a%material% at %x%,%y%,%z% unfrozen."
+  unfreeze-block-not-frozen: "&eThat block isn't frozen."
+
+  # %world%
+  clearcontainers-scanning: "&eScanning '%world%' for tainted containers - this may take a while, progress will be reported periodically..."
+  # %scanned%, %total%, %percent%
+  clearcontainers-progress: "&eContainer clear: %scanned% / %total% chunks (%percent%%)"
+  # %world%, %containers%, %frames%, %stands%, %allays%, %items%, %total%
+  clearcontainers-complete: "&aContainer clear complete in '%world%': %containers% container(s), %frames% item frame(s), %stands% armor stand(s), %allays% allay(s), %items% dropped item(s) - %total% total."
