@@ -107,6 +107,9 @@ public class DWorldManager extends JavaPlugin {
         DWorldManagerCommand handler = new DWorldManagerCommand(this);
         var cmd = getCommand("dworldmanager");
         if (cmd != null) {
+            // Players without a single dWorldManager permission don't get the
+            // command sent to their client, so it never shows up in suggestions.
+            cmd.setPermission(DWorldManagerCommand.anyPermission());
             cmd.setExecutor(handler);
             cmd.setTabCompleter(handler);
         }

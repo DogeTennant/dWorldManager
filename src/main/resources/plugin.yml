@@ -20,8 +20,15 @@ permissions:
 
   #  Admin
   dworldmanager.admin:
-    description: Access to all admin commands and bypasses
+    description: Access to all admin commands
     default: op
+    children:
+      dworldmanager.reload: true
+      dworldmanager.migrate: true
+      dworldmanager.freeze: true
+      dworldmanager.unfreeze: true
+      dworldmanager.clearcontainers: true
+      dworldmanager.audit: true
 
   dworldmanager.reload:
     description: Reload the plugin config

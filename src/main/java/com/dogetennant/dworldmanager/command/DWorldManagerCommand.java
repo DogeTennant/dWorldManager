@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.UUID;
 
 public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
@@ -43,10 +44,30 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
 
+    // The permission behind each subcommand. Only decides what help and tab
+    // completion show - the handlers still check it themselves.
+    private static final Map<String, String> PERMISSIONS = Map.of(
+            "reload", "dworldmanager.reload",
+            "migrate", "dworldmanager.migrate",
+            "freeze", "dworldmanager.freeze",
+            "unfreeze", "dworldmanager.unfreeze",
+            "clearcontainers", "dworldmanager.clearcontainers",
+            "frozen", "dworldmanager.audit",
+            "auditlog", "dworldmanager.audit");
+
     private final DWorldManager plugin;
 
     public DWorldManagerCommand(DWorldManager plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Every subcommand permission joined with ';' - Bukkit's way of saying "any
+     * of these". Used as the command's own permission, so a player holding none
+     * of them is never sent /dwm at all.
+     */
+    public static String anyPermission() {
+        return String.join(";", new TreeSet<>(PERMISSIONS.values()));
     }
 
     @Override
@@ -96,22 +117,29 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(Component.text("dWorldManager " + plugin.getPluginMeta().getVersion(),
                 NamedTextColor.GOLD, TextDecoration.BOLD));
-        sendHelpLine(sender, "/dwm reload", "Reload the config");
-        sendHelpLine(sender, "/dwm migrate", "Run SQLite -> MySQL data migration");
-        sendHelpLine(sender, "/dwm freeze <world> [--placed-only] [material ...]", "Grandfather restricted blocks in a world");
-        sendHelpLine(sender, "/dwm freeze region <world> <x1> <y1> <z1> <x2> <y2> <z2> [--placed-only] [material ...]", "Grandfather restricted blocks in a region");
-        sendHelpLine(sender, "/dwm freeze block", "Grandfather the block you're looking at");
-        sendHelpLine(sender, "/dwm unfreeze <world> [material]", "Unfreeze blocks in a world, optionally by material");
-        sendHelpLine(sender, "/dwm unfreeze region <world> <x1> <y1> <z1> <x2> <y2> <z2>", "Unfreeze blocks in a region");
-        sendHelpLine(sender, "/dwm unfreeze block", "Unfreeze the block you're looking at");
-        sendHelpLine(sender, "/dwm clearcontainers <world>", "Clear tainted containers/entities and dropped items");
-        sendHelpLine(sender, "/dwm frozen <world> [material]", "Show frozen block counts, or coordinates for one material");
-        sendHelpLine(sender, "/dwm auditlog [limit]", "Show recent staff unfreeze actions");
+        sendHelpLine(sender, "reload", "/dwm reload", "Reload the config");
+        sendHelpLine(sender, "migrate", "/dwm migrate", "Run SQLite -> MySQL data migration");
+        sendHelpLine(sender, "freeze", "/dwm freeze <world> [--placed-only] [material ...]", "Grandfather restricted blocks in a world");
+        sendHelpLine(sender, "freeze", "/dwm freeze region <world> <x1> <y1> <z1> <x2> <y2> <z2> [--placed-only] [material ...]", "Grandfather restricted blocks in a region");
+        sendHelpLine(sender, "freeze", "/dwm freeze block", "Grandfather the block you're looking at");
+        sendHelpLine(sender, "unfreeze", "/dwm unfreeze <world> [material]", "Unfreeze blocks in a world, optionally by material");
+        sendHelpLine(sender, "unfreeze", "/dwm unfreeze region <world> <x1> <y1> <z1> <x2> <y2> <z2>", "Unfreeze blocks in a region");
+        sendHelpLine(sender, "unfreeze", "/dwm unfreeze block", "Unfreeze the block you're looking at");
+        sendHelpLine(sender, "clearcontainers", "/dwm clearcontainers <world>", "Clear tainted containers/entities and dropped items");
+        sendHelpLine(sender, "frozen", "/dwm frozen <world> [material]", "Show frozen block counts, or coordinates for one material");
+        sendHelpLine(sender, "auditlog", "/dwm auditlog [limit]", "Show recent staff unfreeze actions");
     }
 
-    private void sendHelpLine(CommandSender sender, String usage, String description) {
+    /** Only sent if the sender is allowed to run {@code subcommand}. */
+    private void sendHelpLine(CommandSender sender, String subcommand, String usage, String description) {
+        if (!canUse(sender, subcommand)) return;
         sender.sendMessage(Component.text(usage, NamedTextColor.AQUA)
                 .append(Component.text(" - " + description, NamedTextColor.GRAY)));
+    }
+
+    private boolean canUse(CommandSender sender, String subcommand) {
+        String permission = PERMISSIONS.get(subcommand);
+        return permission != null && sender.hasPermission(permission);
     }
 
     private boolean requirePermission(CommandSender sender, String permission) {
@@ -531,11 +559,13 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> results = new ArrayList<>();
-            StringUtil.copyPartialMatches(args[0], SUBCOMMANDS, results);
+            StringUtil.copyPartialMatches(args[0],
+                    SUBCOMMANDS.stream().filter(sub -> canUse(sender, sub)).toList(), results);
             return results;
         }
 
         String sub = args[0].toLowerCase();
+        if (!canUse(sender, sub)) return List.of();
 
         if (sub.equals("freeze") || sub.equals("unfreeze")) {
             return completeFreezeUnfreeze(sub, args);

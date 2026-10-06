@@ -42,10 +42,12 @@ Notes:
 
 ## Permissions
 
-All default to op.
+All default to op. `/dwm` is hidden from anyone without at least one of them,
+and help and tab completion only list the sub-commands the sender can run.
 
 | Permission | Grants |
 | --- | --- |
+| `dworldmanager.admin` | everything below |
 | `dworldmanager.reload` | `/dwm reload` |
 | `dworldmanager.freeze` | all `/dwm freeze` variants |
 | `dworldmanager.unfreeze` | all `/dwm unfreeze` variants |
