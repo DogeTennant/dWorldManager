@@ -20,6 +20,9 @@ import java.util.logging.Level;
  *   3. Writes them into the active MySQL database
  *   4. Reports results to the command sender
  *
+ * Running it again copies nothing twice: blocks are upserts, and an unfreeze log
+ * entry is only copied when MySQL does not have the same entry yet.
+ *
  * The SQLite file is never deleted - the server owner must manually
  * switch storage.type to mysql in config.yml and restart.
  *
@@ -68,8 +71,9 @@ public class MigrationManager {
                 target.freezeBlocks(frozenBlocks);
 
                 List<UnfreezeLogEntry> logEntries = source.getUnfreezeLog(Integer.MAX_VALUE);
+                int copiedLogs = 0;
                 for (UnfreezeLogEntry entry : logEntries) {
-                    target.logUnfreeze(entry);
+                    if (target.copyUnfreezeLogEntry(entry)) copiedLogs++;
                 }
 
                 List<PlacedBlock> placedBlocks = source.getAllPlacedBlocks();
@@ -78,15 +82,19 @@ public class MigrationManager {
                 }
 
                 final int finalFrozen = frozenBlocks.size();
-                final int finalLogs   = logEntries.size();
+                final int finalLogs   = copiedLogs;
+                final int keptLogs    = logEntries.size() - copiedLogs;
                 final int finalPlaced = placedBlocks.size();
 
                 Bukkit.getScheduler().runTask(plugin, () -> {
+                    String kept = keptLogs > 0 ? " (" + keptLogs + " already in MySQL)" : "";
                     sender.sendMessage("Migration complete: " + finalFrozen + " frozen block(s), "
-                            + finalLogs + " unfreeze log entr(y/ies), " + finalPlaced + " placed block record(s) migrated.");
+                            + finalLogs + " unfreeze log entr(y/ies)" + kept + ", " + finalPlaced
+                            + " placed block record(s) migrated.");
                     plugin.getLogger().info("Migration complete: "
                             + finalFrozen + " frozen blocks, " + finalLogs
-                            + " unfreeze log entries, " + finalPlaced + " placed block records migrated.");
+                            + " unfreeze log entries (" + keptLogs + " already there), " + finalPlaced
+                            + " placed block records migrated.");
                     plugin.getLogger().info(
                             "Change storage.type to 'mysql' in config.yml "
                                     + "and restart the server to use MySQL.");

@@ -393,6 +393,36 @@ public class MySQLManager extends DatabaseManager {
         }
     }
 
+    /**
+     * Inserts a log entry copied by {@code /dwm migrate} unless the same entry (block, material,
+     * count, staff member and time) is already logged, so a second migration copies nothing twice.
+     *
+     * @return {@code true} if it was inserted
+     */
+    public boolean copyUnfreezeLogEntry(UnfreezeLogEntry entry) {
+        String sql = "SELECT 1 FROM `" + unfreezeLogTable + "` WHERE world = ? AND x = ? AND y = ? AND z = ?"
+                + " AND material = ? AND affected_count = ? AND staff_uuid = ? AND unfrozen_at = ? LIMIT 1;";
+        try (Connection con = dataSource.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, entry.world());
+            ps.setInt(2, entry.x());
+            ps.setInt(3, entry.y());
+            ps.setInt(4, entry.z());
+            ps.setString(5, entry.material());
+            ps.setInt(6, entry.affectedCount());
+            ps.setString(7, entry.staffUuid().toString());
+            ps.setLong(8, entry.unfrozenAt());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return false;
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.WARNING, "Failed to check the unfreeze log.", e);
+            return false;
+        }
+        logUnfreeze(entry);
+        return true;
+    }
+
     @Override
     public List<UnfreezeLogEntry> getUnfreezeLog(int limit) {
         String sql = "SELECT * FROM `" + unfreezeLogTable + "` ORDER BY unfrozen_at DESC LIMIT ?;";

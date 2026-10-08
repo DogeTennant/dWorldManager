@@ -84,9 +84,9 @@ class MigrationManagerTest {
         assertThat(dataFolder.resolve("data.db")).isRegularFile();
     }
 
-    /** Documents current behaviour: see docs/problems/dworldmanager-migrate-twice-duplicates-log.md. */
+    /** docs/problems/dworldmanager-migrate-twice-duplicates-log.md */
     @Test
-    void migratingTwiceDoublesTheUnfreezeLogButNotTheBlocks() throws Exception {
+    void migratingTwiceCopiesNothingTwice() throws Exception {
         sqliteWithData();
 
         new MigrationManager(plugin).migrate(sender);
@@ -94,7 +94,23 @@ class MigrationManagerTest {
 
         assertThat(mysql.getAllFrozenBlocks()).hasSize(2);
         assertThat(mysql.getAllPlacedBlocks()).hasSize(1);
-        assertThat(mysql.getUnfreezeLog(10)).hasSize(2);
+        assertThat(mysql.getUnfreezeLog(10)).hasSize(1);
+        verify(sender).sendMessage("Migration complete: 2 frozen block(s), 0 unfreeze log entr(y/ies) "
+                + "(1 already in MySQL), 1 placed block record(s) migrated.");
+    }
+
+    @Test
+    void aDifferentEntryOfTheSameBlockIsStillCopied() throws Exception {
+        sqliteWithData();
+        new MigrationManager(plugin).migrate(sender);
+        SQLiteManager sqlite = new SQLiteManager(plugin);
+        sqlite.initialize();
+        sqlite.logUnfreeze(new UnfreezeLogEntry(0, "world", 7, 8, 9, "EMERALD_ORE", 1, STAFF, "Admin", 31));
+        sqlite.shutdown();
+
+        new MigrationManager(plugin).migrate(sender);
+
+        assertThat(mysql.getUnfreezeLog(10)).extracting(UnfreezeLogEntry::unfrozenAt).containsExactly(31L, 30L);
     }
 
     @Test
