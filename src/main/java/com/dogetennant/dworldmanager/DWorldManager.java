@@ -10,10 +10,13 @@ import com.dogetennant.dworldmanager.container.ContainerClearService;
 import com.dogetennant.dworldmanager.container.ContainerTaintListener;
 import com.dogetennant.dworldmanager.container.ContainerTaintService;
 import com.dogetennant.dworldmanager.database.DatabaseManager;
+import com.dogetennant.dworldmanager.database.DatabaseQueue;
 import com.dogetennant.dworldmanager.database.MigrationManager;
 import com.dogetennant.dworldmanager.database.MySQLManager;
 import com.dogetennant.dworldmanager.database.SQLiteManager;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.concurrent.TimeUnit;
 
 public class DWorldManager extends JavaPlugin {
 
@@ -27,6 +30,7 @@ public class DWorldManager extends JavaPlugin {
     //  Managers
     private ConfigManager configManager;
     private DatabaseManager databaseManager;
+    private DatabaseQueue databaseQueue;
     private MigrationManager migrationManager;
     private BlockFreezeService blockFreezeService;
     private PlacedBlockTracker placedBlockTracker;
@@ -51,6 +55,7 @@ public class DWorldManager extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+        databaseQueue = new DatabaseQueue(getLogger(), task -> getServer().getScheduler().runTask(this, task));
         migrationManager = new MigrationManager(this);
         placedBlockTracker = new PlacedBlockTracker(this);
         blockFreezeService = new BlockFreezeService(this, placedBlockTracker);
@@ -71,6 +76,10 @@ public class DWorldManager extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // the writes still queued (placed blocks, the last freeze batch) reach the database first
+        if (databaseQueue != null && !databaseQueue.close(30, TimeUnit.SECONDS)) {
+            getLogger().warning("Database writes were still running after 30 seconds; some may be lost.");
+        }
         if (databaseManager != null) {
             databaseManager.shutdown();
         }
@@ -121,6 +130,7 @@ public class DWorldManager extends JavaPlugin {
 
     public ConfigManager getConfigManager()     { return configManager; }
     public DatabaseManager getDatabaseManager() { return databaseManager; }
+    public DatabaseQueue getDatabaseQueue()     { return databaseQueue; }
     public MigrationManager getMigrationManager() { return migrationManager; }
     public BlockFreezeService getBlockFreezeService() { return blockFreezeService; }
     public PlacedBlockTracker getPlacedBlockTracker() { return placedBlockTracker; }

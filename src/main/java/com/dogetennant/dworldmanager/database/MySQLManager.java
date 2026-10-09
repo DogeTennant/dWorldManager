@@ -83,10 +83,15 @@ public class MySQLManager extends DatabaseManager {
                     staff_uuid     VARCHAR(36)  NOT NULL,
                     staff_name     VARCHAR(64)  NOT NULL,
                     unfrozen_at    BIGINT       NOT NULL,
+                    scope          VARCHAR(16)  NULL,
+                    region_end     VARCHAR(48)  NULL,
                     PRIMARY KEY (id),
                     INDEX idx_unfreeze_log_time (unfrozen_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """.formatted(unfreezeLogTable));
+            // added in 1.1.0: what an unfreeze covered (older rows keep null)
+            addColumnIfMissing(stmt, unfreezeLogTable, "scope", "VARCHAR(16) NULL");
+            addColumnIfMissing(stmt, unfreezeLogTable, "region_end", "VARCHAR(48) NULL");
 
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS `%s` (
@@ -375,7 +380,8 @@ public class MySQLManager extends DatabaseManager {
     @Override
     public void logUnfreeze(UnfreezeLogEntry entry) {
         String sql = "INSERT INTO `" + unfreezeLogTable
-                + "` (world, x, y, z, material, affected_count, staff_uuid, staff_name, unfrozen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                + "` (world, x, y, z, material, affected_count, staff_uuid, staff_name, unfrozen_at, scope, region_end)"
+                + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
         try (Connection con = dataSource.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, entry.world());
@@ -387,6 +393,8 @@ public class MySQLManager extends DatabaseManager {
             ps.setString(7, entry.staffUuid().toString());
             ps.setString(8, entry.staffName());
             ps.setLong(9, entry.unfrozenAt());
+            ps.setString(10, entry.scope() != null ? entry.scope().name() : null);
+            ps.setString(11, entry.regionEnd());
             ps.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().log(Level.WARNING, "Failed to log unfreeze action.", e);
@@ -448,7 +456,19 @@ public class MySQLManager extends DatabaseManager {
                 rs.getInt("affected_count"),
                 UUID.fromString(rs.getString("staff_uuid")),
                 rs.getString("staff_name"),
-                rs.getLong("unfrozen_at")
+                rs.getLong("unfrozen_at"),
+                UnfreezeLogEntry.scopeOf(rs.getString("scope")),
+                rs.getString("region_end")
         );
+    }
+
+    /** Adds a column an older table does not have yet (MySQL error 1060 / H2 42121: it is there already). */
+    private void addColumnIfMissing(Statement stmt, String table, String column, String definition) throws SQLException {
+        try {
+            stmt.executeUpdate("ALTER TABLE `" + table + "` ADD COLUMN " + column + " " + definition + ";");
+            plugin.getLogger().info("Added column '" + column + "' to " + table + ".");
+        } catch (SQLException e) {
+            if (e.getErrorCode() != 1060 && e.getErrorCode() != 42121) throw e;
+        }
     }
 }

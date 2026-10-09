@@ -257,6 +257,21 @@ abstract class DatabaseManagerContractTest {
     }
 
     @Test
+    void anUnfreezeKeepsWhatItCovered() {
+        db.logUnfreeze(new UnfreezeLogEntry(0, "world", 0, 60, 0, "*", 12, STAFF, "Admin", 1000,
+                UnfreezeLogEntry.Scope.REGION, "10,70,10"));
+        db.logUnfreeze(new UnfreezeLogEntry(0, "world", 0, 0, 0, "GOLD_BLOCK", 3, STAFF, "Admin", 2000,
+                UnfreezeLogEntry.Scope.WORLD, null));
+
+        assertThat(db.getUnfreezeLog(10)).usingRecursiveFieldByFieldElementComparatorIgnoringFields("id")
+                .containsExactly(
+                        new UnfreezeLogEntry(0, "world", 0, 0, 0, "GOLD_BLOCK", 3, STAFF, "Admin", 2000,
+                                UnfreezeLogEntry.Scope.WORLD, null),
+                        new UnfreezeLogEntry(0, "world", 0, 60, 0, "*", 12, STAFF, "Admin", 1000,
+                                UnfreezeLogEntry.Scope.REGION, "10,70,10"));
+    }
+
+    @Test
     void theUnfreezeLogIsNewestFirstAndLimited() {
         db.logUnfreeze(new UnfreezeLogEntry(0, "world", 0, 0, 0, "*", 30, STAFF, "Admin", 1000));
         db.logUnfreeze(new UnfreezeLogEntry(0, "world", 0, 0, 0, "*", 10, STAFF, "Admin", 3000));

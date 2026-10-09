@@ -36,6 +36,9 @@ import java.util.UUID;
 
 public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
 
+    /** Most entries /dwm auditlog shows at once. */
+    static final int MAX_AUDIT_LOG_LINES = 100;
+
     private static final List<String> SUBCOMMANDS =
             List.of("reload", "migrate", "freeze", "unfreeze", "clearcontainers", "frozen", "auditlog");
 
@@ -338,15 +341,15 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Msg.of(plugin, "unknown-material", "&cUnknown material: %material%", "material", args[2]));
                 return;
             }
-            int count = plugin.getBlockFreezeService().unfreezeMaterialInWorld(world, material, staffUuid, staffName);
-            sender.sendMessage(Msg.of(plugin, "unfreeze-material-success",
-                    "&a%count% block(s) of %material% unfrozen in '%world%'.",
-                    "count", String.valueOf(count), "material", material.name(), "world", world.getName()));
+            plugin.getBlockFreezeService().unfreezeMaterialInWorld(world, material, staffUuid, staffName, count ->
+                    sender.sendMessage(Msg.of(plugin, "unfreeze-material-success",
+                            "&a%count% block(s) of %material% unfrozen in '%world%'.",
+                            "count", String.valueOf(count), "material", material.name(), "world", world.getName())));
         } else {
-            int count = plugin.getBlockFreezeService().unfreezeAllInWorld(world, staffUuid, staffName);
-            sender.sendMessage(Msg.of(plugin, "unfreeze-world-success",
-                    "&a%count% block(s) unfrozen in '%world%'.",
-                    "count", String.valueOf(count), "world", world.getName()));
+            plugin.getBlockFreezeService().unfreezeAllInWorld(world, staffUuid, staffName, count ->
+                    sender.sendMessage(Msg.of(plugin, "unfreeze-world-success",
+                            "&a%count% block(s) unfrozen in '%world%'.",
+                            "count", String.valueOf(count), "world", world.getName())));
         }
     }
 
@@ -370,10 +373,10 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
         UUID staffUuid = sender instanceof Player player ? player.getUniqueId() : BlockFreezeService.CONSOLE_UUID;
         String staffName = sender.getName();
 
-        int count = plugin.getBlockFreezeService().unfreezeRegion(world, c[0], c[1], c[2], c[3], c[4], c[5], staffUuid, staffName);
-        sender.sendMessage(Msg.of(plugin, "unfreeze-region-success",
-                "&a%count% block(s) unfrozen in the selected region in '%world%'.",
-                "count", String.valueOf(count), "world", world.getName()));
+        plugin.getBlockFreezeService().unfreezeRegion(world, c[0], c[1], c[2], c[3], c[4], c[5], staffUuid, staffName,
+                count -> sender.sendMessage(Msg.of(plugin, "unfreeze-region-success",
+                        "&a%count% block(s) unfrozen in the selected region in '%world%'.",
+                        "count", String.valueOf(count), "world", world.getName())));
     }
 
     // /dwm unfreeze block
@@ -390,13 +393,15 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        boolean removed = plugin.getBlockFreezeService().unfreezeSingleBlock(target, player.getUniqueId(), player.getName());
-        if (removed) {
-            sender.sendMessage(Msg.of(plugin, "unfreeze-block-success",
-                    "&a%material% at %x%,%y%,%z% unfrozen.", blockTokens(target)));
-        } else {
-            sender.sendMessage(Msg.of(plugin, "unfreeze-block-not-frozen", "&eThat block isn't frozen."));
-        }
+        String[] tokens = blockTokens(target);
+        plugin.getBlockFreezeService().unfreezeSingleBlock(target, player.getUniqueId(), player.getName(), removed -> {
+            if (removed) {
+                sender.sendMessage(Msg.of(plugin, "unfreeze-block-success",
+                        "&a%material% at %x%,%y%,%z% unfrozen.", tokens));
+            } else {
+                sender.sendMessage(Msg.of(plugin, "unfreeze-block-not-frozen", "&eThat block isn't frozen."));
+            }
+        });
     }
 
     private String[] blockTokens(Block block) {
@@ -478,14 +483,18 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        List<FrozenBlock> blocks = plugin.getDatabaseManager().getFrozenBlocksInWorld(world.getName());
+        Material material = args.length > 2 ? Material.matchMaterial(args[2]) : null;
+        if (args.length > 2 && material == null) {
+            sender.sendMessage(Msg.of(plugin, "unknown-material", "&cUnknown material: %material%", "material", args[2]));
+            return;
+        }
 
-        if (args.length > 2) {
-            Material material = Material.matchMaterial(args[2]);
-            if (material == null) {
-                sender.sendMessage(Msg.of(plugin, "unknown-material", "&cUnknown material: %material%", "material", args[2]));
-                return;
-            }
+        plugin.getDatabaseQueue().query(() -> plugin.getDatabaseManager().getFrozenBlocksInWorld(world.getName()),
+                blocks -> showFrozen(sender, world, material, blocks));
+    }
+
+    private void showFrozen(CommandSender sender, World world, Material material, List<FrozenBlock> blocks) {
+        if (material != null) {
             List<FrozenBlock> matches = blocks.stream().filter(b -> b.material().equals(material.name())).toList();
             if (matches.isEmpty()) {
                 sender.sendMessage(Component.text("No frozen " + material.name() + " in '" + world.getName() + "'.", NamedTextColor.GRAY));
@@ -525,14 +534,19 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
         int limit = 10;
         if (args.length > 1) {
             try {
-                limit = Math.max(1, Integer.parseInt(args[1]));
+                limit = Math.min(MAX_AUDIT_LOG_LINES, Math.max(1, Integer.parseInt(args[1])));
             } catch (NumberFormatException e) {
                 sender.sendMessage(Msg.raw("&cLimit must be a whole number."));
                 return;
             }
         }
 
-        List<UnfreezeLogEntry> entries = plugin.getDatabaseManager().getUnfreezeLog(limit);
+        int lines = limit;
+        plugin.getDatabaseQueue().query(() -> plugin.getDatabaseManager().getUnfreezeLog(lines),
+                entries -> showAuditLog(sender, entries));
+    }
+
+    private void showAuditLog(CommandSender sender, List<UnfreezeLogEntry> entries) {
         if (entries.isEmpty()) {
             sender.sendMessage(Component.text("No unfreeze actions recorded yet.", NamedTextColor.GRAY));
             return;
@@ -540,15 +554,27 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
 
         sender.sendMessage(Component.text("Last " + entries.size() + " unfreeze action(s):", NamedTextColor.GOLD));
         for (UnfreezeLogEntry entry : entries) {
-            boolean hasCoords = !(entry.x() == 0 && entry.y() == 0 && entry.z() == 0);
-            String materialLabel = entry.material().equals("*") ? "all materials" : entry.material();
-            String where = hasCoords ? " at " + entry.x() + "," + entry.y() + "," + entry.z() : "";
             String when = TIMESTAMP_FORMAT.format(Instant.ofEpochMilli(entry.unfrozenAt()));
-
             sender.sendMessage(Component.text("  [" + when + "] " + entry.staffName() + " unfroze "
-                    + entry.affectedCount() + "x " + materialLabel + " in '" + entry.world() + "'" + where,
-                    NamedTextColor.GRAY));
+                    + describe(entry), NamedTextColor.GRAY));
         }
+    }
+
+    /** What an audit log entry unfroze, e.g. "12x all materials in region 0,60,0 - 10,70,10 of 'build'". */
+    static String describe(UnfreezeLogEntry entry) {
+        String materialLabel = entry.material().equals("*") ? "all materials" : entry.material();
+        String what = entry.affectedCount() + "x " + materialLabel;
+        String at = entry.x() + "," + entry.y() + "," + entry.z();
+        if (entry.scope() == null) {
+            // logged before 1.1.0: 0,0,0 stood for "no coordinates" (a whole world, or a region)
+            boolean hasCoords = !(entry.x() == 0 && entry.y() == 0 && entry.z() == 0);
+            return what + " in '" + entry.world() + "'" + (hasCoords ? " at " + at : "");
+        }
+        return switch (entry.scope()) {
+            case BLOCK -> what + " in '" + entry.world() + "' at " + at;
+            case REGION -> what + " in region " + at + " - " + entry.regionEnd() + " of '" + entry.world() + "'";
+            case WORLD -> what + " in all of '" + entry.world() + "'";
+        };
     }
 
     //

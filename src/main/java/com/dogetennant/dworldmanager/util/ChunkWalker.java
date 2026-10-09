@@ -65,9 +65,14 @@ public final class ChunkWalker {
      * new terrain), then calls visitor.visit(chunk). progressListener (nullable)
      * is pinged roughly every 5 seconds with how far through the list we are.
      * Calls onDone once every chunk has been considered.
+     *
+     * Chunks that were not loaded before are unloaded again after the visit; saveChanges says
+     * whether the visitor changed them (they are then saved on unload - unloading without saving
+     * would throw the changes away) or only read them.
      */
     public static void walk(Plugin plugin, World world, List<int[]> chunkCoords, long tickBudgetMillis,
-                             ChunkVisitor visitor, ProgressListener progressListener, Runnable onDone) {
+                             boolean saveChanges, ChunkVisitor visitor, ProgressListener progressListener,
+                             Runnable onDone) {
         int[] index = {0};
         long[] lastProgressAt = {System.nanoTime()};
 
@@ -80,7 +85,7 @@ public final class ChunkWalker {
                     Chunk chunk = world.getChunkAt(coord[0], coord[1]);
                     visitor.visit(chunk);
                     if (!wasLoaded) {
-                        world.unloadChunk(coord[0], coord[1], false);
+                        world.unloadChunk(coord[0], coord[1], saveChanges);
                     }
                 }
             }

@@ -1,10 +1,18 @@
 package com.dogetennant.dworldmanager.container;
 
 import com.dogetennant.dworldmanager.DWorldManager;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.ChiseledBookshelf;
+import org.bukkit.block.DecoratedPot;
+import org.bukkit.block.Jukebox;
+import org.bukkit.block.Lectern;
 import org.bukkit.entity.ItemFrame;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -12,6 +20,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -53,7 +62,10 @@ public class ContainerTaintListener implements Listener {
         if (clicked == null) return;
 
         boolean depositsIntoTop = switch (event.getAction()) {
-            case PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR, HOTBAR_SWAP, HOTBAR_MOVE_AND_READD ->
+            // the bundle actions: a bundle on the cursor emptied into a slot, or items put into a
+            // bundle that lies in the slot
+            case PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR, HOTBAR_SWAP, HOTBAR_MOVE_AND_READD,
+                 PLACE_FROM_BUNDLE, PLACE_ALL_INTO_BUNDLE, PLACE_SOME_INTO_BUNDLE ->
                     clicked.equals(top);
             case MOVE_TO_OTHER_INVENTORY -> !clicked.equals(top);
             default -> false;
@@ -85,6 +97,26 @@ public class ContainerTaintListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
         taintService.taintHolderOf(event.getDestination());
+    }
+
+    /**
+     * Decorated pots, chiseled bookshelves, lecterns and jukeboxes take an item by right-clicking
+     * the block, not through an inventory screen. Chests and the like only open on a right-click,
+     * which is viewing and does not taint.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.useInteractedBlock() == Event.Result.DENY) return;
+        ItemStack hand = event.getItem();
+        Block block = event.getClickedBlock();
+        if (hand == null || hand.isEmpty() || block == null) return;
+
+        BlockState state = block.getState();
+        if (state instanceof DecoratedPot || state instanceof ChiseledBookshelf
+                || state instanceof Lectern || state instanceof Jukebox) {
+            taintService.taint(state);
+        }
     }
 
     /** Item frames (regular and glow) don't use a normal inventory GUI - insertion happens straight through the interact event. */

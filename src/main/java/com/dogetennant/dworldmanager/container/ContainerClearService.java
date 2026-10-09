@@ -60,7 +60,8 @@ public class ContainerClearService {
 
         boolean debug = plugin.getConfigManager().isDebug();
 
-        ChunkWalker.walk(plugin, world, chunkCoords, tickBudgetMillis,
+        // the clear changes the chunks, so the ones loaded only for it are saved when unloaded
+        ChunkWalker.walk(plugin, world, chunkCoords, tickBudgetMillis, true,
                 chunk -> {
                     for (BlockState state : chunk.getTileEntities()) {
                         boolean isHolder = state instanceof InventoryHolder;

@@ -114,6 +114,21 @@ class MigrationManagerTest {
     }
 
     @Test
+    void whatAnUnfreezeCoveredIsCopiedToo() throws Exception {
+        SQLiteManager sqlite = new SQLiteManager(plugin);
+        sqlite.initialize();
+        sqlite.logUnfreeze(new UnfreezeLogEntry(0, "world", 0, 60, 0, "*", 12, STAFF, "Admin", 50,
+                UnfreezeLogEntry.Scope.REGION, "10,70,10"));
+        sqlite.shutdown();
+
+        new MigrationManager(plugin).migrate(sender);
+
+        assertThat(mysql.getUnfreezeLog(10)).singleElement()
+                .extracting(UnfreezeLogEntry::scope, UnfreezeLogEntry::regionEnd)
+                .containsExactly(UnfreezeLogEntry.Scope.REGION, "10,70,10");
+    }
+
+    @Test
     void refusesWhenTheActiveStorageIsNotMySql() throws Exception {
         sqliteWithData();
         SQLiteManager active = new SQLiteManager(plugin);

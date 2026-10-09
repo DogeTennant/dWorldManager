@@ -4,9 +4,9 @@ A Paper plugin that stops items and value leaking out of a persistent world when
 
 It does two independent things:
 
-**Block freezing (grandfathering)** - scans a world (or a region, or one block) for valuable materials and marks them frozen. Frozen blocks can't be broken by anyone until staff explicitly unfreeze them. Every unfreeze is written to an audit log.
+**Block freezing (grandfathering)** - scans a world (or a region, or one block) for valuable materials and marks them frozen. Frozen blocks stay where they are until staff explicitly unfreeze them: nobody can break them, pistons can't move them, explosions leave them standing and mobs or fire can't change them. Every unfreeze is written to an audit log (which block, region or world).
 
-**Container clearing** - a container, item frame, armor stand or storage entity gets flagged ("tainted") the moment a player actually puts something into it. `/dwm clearcontainers` empties every tainted one in the world, plus allays and dropped items. Containers nobody ever deposited into - dungeon and village loot chests, for example - are left alone.
+**Container clearing** - a container, item frame, armor stand or storage entity gets flagged ("tainted") the moment a player actually puts something into it - by hand, shift-click, dragging, a bundle, a hopper, or by right-clicking an item into a decorated pot, chiseled bookshelf, lectern or jukebox. `/dwm clearcontainers` empties every tainted one in the world, plus allays and dropped items, also in chunks nobody is near (those are loaded, cleared, saved and unloaded again). Containers nobody ever deposited into - dungeon and village loot chests, for example - are left alone.
 
 Blocks and entities are never removed, only emptied. A chest someone used as storage stays part of their build, it's just empty afterwards.
 
@@ -30,7 +30,7 @@ Base command is `/dworldmanager`, alias `/dwm`.
 | `/dwm unfreeze block` | Unfreeze the block you're looking at |
 | `/dwm clearcontainers <world>` | Empty every tainted container/entity + dropped items |
 | `/dwm frozen <world> [material]` | Frozen block counts per material, or coordinates for one material |
-| `/dwm auditlog [limit]` | Recent staff unfreeze actions (default 10) |
+| `/dwm auditlog [limit]` | Recent staff unfreeze actions (default 10, at most 100) |
 | `/dwm migrate` | Copy SQLite data into MySQL (see Storage) |
 
 Notes:

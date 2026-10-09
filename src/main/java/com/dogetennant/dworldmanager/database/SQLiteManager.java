@@ -79,11 +79,16 @@ public class SQLiteManager extends DatabaseManager {
                     affected_count  INTEGER NOT NULL DEFAULT 1,
                     staff_uuid      TEXT    NOT NULL,
                     staff_name      TEXT    NOT NULL,
-                    unfrozen_at     INTEGER NOT NULL
+                    unfrozen_at     INTEGER NOT NULL,
+                    scope           TEXT,
+                    region_end      TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_unfreeze_log_time
                     ON "%s" (unfrozen_at);
                 """.formatted(unfreezeLogTable, unfreezeLogTable));
+            // added in 1.1.0: what an unfreeze covered (older rows keep null)
+            addColumnIfMissing(stmt, unfreezeLogTable, "scope", "TEXT");
+            addColumnIfMissing(stmt, unfreezeLogTable, "region_end", "TEXT");
 
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS "%s" (
@@ -375,8 +380,9 @@ public class SQLiteManager extends DatabaseManager {
     @Override
     public void logUnfreeze(UnfreezeLogEntry entry) {
         String sql = """
-            INSERT INTO "%s" (world, x, y, z, material, affected_count, staff_uuid, staff_name, unfrozen_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO "%s" (world, x, y, z, material, affected_count, staff_uuid, staff_name, unfrozen_at,
+                              scope, region_end)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """.formatted(unfreezeLogTable);
         try (Connection con = dataSource.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -389,6 +395,8 @@ public class SQLiteManager extends DatabaseManager {
             ps.setString(7, entry.staffUuid().toString());
             ps.setString(8, entry.staffName());
             ps.setLong(9, entry.unfrozenAt());
+            ps.setString(10, entry.scope() != null ? entry.scope().name() : null);
+            ps.setString(11, entry.regionEnd());
             ps.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().log(Level.WARNING, "Failed to log unfreeze action.", e);
@@ -420,7 +428,20 @@ public class SQLiteManager extends DatabaseManager {
                 rs.getInt("affected_count"),
                 UUID.fromString(rs.getString("staff_uuid")),
                 rs.getString("staff_name"),
-                rs.getLong("unfrozen_at")
+                rs.getLong("unfrozen_at"),
+                UnfreezeLogEntry.scopeOf(rs.getString("scope")),
+                rs.getString("region_end")
         );
+    }
+
+    /** Adds a column an older data.db does not have yet. */
+    private void addColumnIfMissing(Statement stmt, String table, String column, String definition) throws SQLException {
+        try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(\"" + table + "\");")) {
+            while (rs.next()) {
+                if (rs.getString("name").equalsIgnoreCase(column)) return;
+            }
+        }
+        stmt.executeUpdate("ALTER TABLE \"" + table + "\" ADD COLUMN " + column + " " + definition + ";");
+        plugin.getLogger().info("Added column '" + column + "' to " + table + ".");
     }
 }

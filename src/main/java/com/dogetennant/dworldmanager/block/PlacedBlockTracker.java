@@ -29,20 +29,26 @@ public class PlacedBlockTracker {
         return plugin.getConfigManager().getRestrictedMaterials().contains(material);
     }
 
+    /** Records a placed restricted block; the write runs on the database thread. */
     public void recordPlacement(Block block) {
         if (!isTrackedMaterial(block.getType())) return;
-        plugin.getDatabaseManager().recordPlacedBlock(new PlacedBlock(
-                block.getWorld().getName(), block.getX(), block.getY(), block.getZ(),
-                block.getType().name(), System.currentTimeMillis()));
+        PlacedBlock placed = new PlacedBlock(block.getWorld().getName(), block.getX(), block.getY(), block.getZ(),
+                block.getType().name(), System.currentTimeMillis());
+        plugin.getDatabaseQueue().submit(() -> plugin.getDatabaseManager().recordPlacedBlock(placed));
     }
 
+    /** Forgets a broken restricted block; the write runs on the database thread. */
     public void removePlacement(Block block) {
         if (!isTrackedMaterial(block.getType())) return;
-        plugin.getDatabaseManager().removePlacedBlock(
-                block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+        String world = block.getWorld().getName();
+        int x = block.getX(), y = block.getY(), z = block.getZ();
+        plugin.getDatabaseQueue().submit(() -> plugin.getDatabaseManager().removePlacedBlock(world, x, y, z));
     }
 
-    /** Loads every tracked coordinate in a world - called once at the start of a "player-placed only" freeze scan. */
+    /**
+     * Loads every tracked coordinate in a world - called once at the start of a "player-placed only"
+     * freeze scan. Blocks; runs on the database thread.
+     */
     public Set<BlockKey> getPlacedKeysInWorld(String world) {
         Set<BlockKey> keys = new HashSet<>();
         for (PlacedBlock block : plugin.getDatabaseManager().getPlacedBlocksInWorld(world)) {

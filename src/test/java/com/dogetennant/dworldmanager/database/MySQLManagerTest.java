@@ -1,5 +1,6 @@
 package com.dogetennant.dworldmanager.database;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
@@ -16,5 +17,12 @@ class MySQLManagerTest extends DatabaseManagerContractTest {
     @Override
     protected DatabaseManager open(String prefix) throws Exception {
         return TestPlugin.h2MySql(TestPlugin.mockPlugin(dataFolder, prefix));
+    }
+
+    @Test
+    void startingAgainWithTheNewLogColumnsAlreadyThereIsFine() throws Exception {
+        // the columns added in 1.1.0 exist now; adding them again must be skipped quietly
+        ((MySQLManager) db).createTables();
+        ((MySQLManager) db).createTables();
     }
 }
