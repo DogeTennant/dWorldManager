@@ -6,7 +6,7 @@ It does two independent things:
 
 **Block freezing (grandfathering)** - scans a world (or a region, or one block) for valuable materials and marks them frozen. Frozen blocks stay where they are until staff explicitly unfreeze them: nobody can break them, pistons can't move them, explosions leave them standing and mobs or fire can't change them. Every unfreeze is written to an audit log (which block, region or world).
 
-**Container clearing** - a container, item frame, armor stand or storage entity gets flagged ("tainted") the moment a player actually puts something into it - by hand, shift-click, dragging, a bundle, a hopper, or by right-clicking an item into a decorated pot, chiseled bookshelf, lectern or jukebox. `/dwm clearcontainers` empties every tainted one in the world, plus allays and dropped items, also in chunks nobody is near (those are loaded, cleared, saved and unloaded again). Containers nobody ever deposited into - dungeon and village loot chests, for example - are left alone.
+**Container clearing** - a container, item frame, armor stand or storage entity gets flagged ("tainted") the moment a player actually puts something into it - by hand, shift-click, dragging, a bundle, a hopper, a dispenser putting armour on an armor stand, a copper golem delivering into a chest, or by right-clicking an item into a decorated pot, chiseled bookshelf, lectern or jukebox. `/dwm clearcontainers` empties every tainted one in the world, plus allays (what they collected and the item they hold) and dropped items, also in chunks nobody is near (those are loaded, cleared, saved and unloaded again). Containers nobody ever deposited into - dungeon and village loot chests, for example - are left alone, and so are players' own inventories and ender chests.
 
 Blocks and entities are never removed, only emptied. A chest someone used as storage stays part of their build, it's just empty afterwards.
 
@@ -36,7 +36,7 @@ Base command is `/dworldmanager`, alias `/dwm`.
 Notes:
 
 - If you don't pass any materials, the freeze commands use `blocks.restricted-materials` from the config.
-- `--placed-only` freezes only blocks a player placed, leaving naturally generated ones alone - useful for ore. Placement is only tracked for materials that were in `restricted-materials` at the time they were placed, so add ore variants there first if you want this.
+- `--placed-only` freezes only blocks a player placed, leaving naturally generated ones alone - useful for ore. Placement is only tracked for materials that were in `restricted-materials` at the time they were placed, so add ore variants there first if you want this. A placed block that a piston moves stays placed where it lands.
 - Full-world scans and container clears are bounded by the world border and refuse to run if it's bigger than `max-scan-border-size`. Set a real border on the world first.
 - Scans are spread across ticks with a time budget, so they don't lag the server, and report progress every few seconds.
 

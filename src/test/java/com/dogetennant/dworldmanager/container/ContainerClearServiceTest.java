@@ -103,7 +103,7 @@ class ContainerClearServiceTest {
         verify(world, never()).unloadChunk(anyInt(), anyInt(), anyBoolean());
     }
 
-    /** Item frames and armor stands need a real server (Material#isAir reads its registries): MockBukkit, later. */
+    /** Item frames and armor stands need a server (Material#isAir reads its registries): ContainerClearServerTest. */
     @Test
     void droppedItemsAreRemoved() {
         Item dropped = mock(Item.class);

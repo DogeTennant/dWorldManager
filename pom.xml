@@ -6,7 +6,7 @@
 
   <groupId>com.dogetennant.dworldmanager</groupId>
   <artifactId>dWorldManager</artifactId>
-  <version>1.1.0</version>
+  <version>1.1.1</version>
   <packaging>jar</packaging>
 
   <properties>
@@ -94,6 +94,14 @@
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <version>2.5.252</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- MockBukkit: a simulated server (real worlds, blocks, entities, players and events) for the
+         tests that load the whole plugin. Its version line must match the Paper API above. -->
+    <dependency>
+      <groupId>org.mockbukkit.mockbukkit</groupId>
+      <artifactId>mockbukkit-v1.21</artifactId>
+      <version>4.116.3</version>
       <scope>test</scope>
     </dependency>
 

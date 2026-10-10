@@ -7,6 +7,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.block.TileState;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.persistence.PersistentDataType;
@@ -89,9 +90,10 @@ public class ContainerTaintService {
             if (doubleChest.getRightSide() instanceof BlockState right) taint(right);
         } else if (holder instanceof BlockState state) {
             taint(state);
-        } else if (holder instanceof Entity entity) {
+        } else if (holder instanceof Entity entity && !(entity instanceof HumanEntity)) {
             taint(entity);
         }
-        // Player, null, or other non-persistent holders - nothing to taint
+        // A player (who owns their crafting grid, a crafting table's grid and their ender chest),
+        // null, or other non-persistent holders - nothing to taint
     }
 }

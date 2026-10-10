@@ -1,18 +1,22 @@
 package com.dogetennant.dworldmanager.container;
 
 import com.dogetennant.dworldmanager.DWorldManager;
+import io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.DecoratedPot;
 import org.bukkit.block.Jukebox;
 import org.bukkit.block.Lectern;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockDispenseArmorEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -140,5 +144,26 @@ public class ContainerTaintListener implements Listener {
         if (given != null && !given.getType().isAir()) {
             taintService.taint(event.getRightClicked());
         }
+    }
+
+    /** A dispenser facing an armor stand puts armour on it - the same as a player dressing it. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDispenseArmor(BlockDispenseArmorEvent event) {
+        if (event.getTargetEntity() instanceof ArmorStand stand) {
+            taintService.taint(stand);
+        }
+    }
+
+    /**
+     * Copper golems carry items from a copper chest into nearby chests, and the server fires no
+     * InventoryMoveItemEvent for it - only this check, before the golem walks to a chest. A golem
+     * with an item in its hand is about to deliver there.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onItemTransportTarget(ItemTransportingEntityValidateTargetEvent event) {
+        if (!event.isAllowed()) return;
+        if (!(event.getEntity() instanceof LivingEntity carrier) || carrier.getEquipment() == null) return;
+        if (carrier.getEquipment().getItemInMainHand().isEmpty()) return; // fetching from a copper chest
+        taintService.taint(event.getBlock().getState());
     }
 }

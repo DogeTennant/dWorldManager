@@ -8,6 +8,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.entity.Allay;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
@@ -116,6 +117,10 @@ public class ContainerClearService {
     }
 
     private void clearEntityIfNeeded(Entity entity, ClearStats stats) {
+        // Players are never cleared - also the ones 1.1.0 tainted through their crafting grid or
+        // ender chest (the flag is still in their player data).
+        if (entity instanceof HumanEntity) return;
+
         if (entity instanceof ItemFrame frame) {
             if (taintService.isTainted(frame) && !frame.getItem().getType().isAir()) {
                 frame.setItem(null);
@@ -127,8 +132,11 @@ public class ContainerClearService {
                 stats.armorStandsCleared++;
             }
         } else if (entity instanceof Allay allay) {
-            // No legitimate reason an allay should be holding something worth preserving - always clear.
+            // No legitimate reason an allay should be holding something worth preserving - always clear:
+            // what it collected (its inventory) and the item a player handed it (its main hand).
             allay.getInventory().clear();
+            allay.getEquipment().setItemInMainHand(null);
+            allay.getEquipment().setItemInOffHand(null);
             stats.allaysCleared++;
         } else if (entity instanceof InventoryHolder holder && taintService.isTainted(entity)) {
             holder.getInventory().clear();
