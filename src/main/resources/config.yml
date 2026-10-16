@@ -83,6 +83,7 @@ messages:
   no-target-block: "&cYou're not looking at a block."
 
   reload-success: "&adWorldManager config reloaded."
+  reload-config-broken: "&cconfig.yml has a mistake (YAML error) - the settings from before stay in use. Fix it, then /dwm reload again."
 
   freeze-no-materials: "&cNo materials given and none configured in blocks.restricted-materials - nothing to freeze."
 

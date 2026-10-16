@@ -83,7 +83,12 @@ public class DWorldManagerCommand implements CommandExecutor, TabCompleter {
         switch (args[0].toLowerCase()) {
             case "reload" -> {
                 if (!requirePermission(sender, "dworldmanager.reload")) return true;
-                plugin.getConfigManager().load();
+                // a config.yml with a YAML error keeps the settings from before
+                if (!plugin.getConfigManager().load()) {
+                    sender.sendMessage(Msg.of(plugin, "reload-config-broken",
+                            "&cconfig.yml has a mistake (YAML error) - the settings from before stay in use. Fix it, then /dwm reload again."));
+                    return true;
+                }
                 sender.sendMessage(Msg.of(plugin, "reload-success", "&adWorldManager config reloaded."));
             }
             case "migrate" -> {

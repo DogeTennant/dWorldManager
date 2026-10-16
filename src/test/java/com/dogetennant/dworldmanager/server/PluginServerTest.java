@@ -58,4 +58,36 @@ class PluginServerTest {
         assertThat(Files.readString(config)).isEqualTo(edited);
         assertThat(mc.plugin.getConfigManager().getRestrictedMaterials()).contains(Material.COPPER_BLOCK);
     }
+
+    /** docs/problems/dworldmanager-config-typo-runs-on-defaults.md */
+    @Test
+    void aReloadWithATypoInConfigYmlKeepsTheSettingsFromBeforeAndTheFile() throws IOException {
+        Path config = mc.plugin.getDataFolder().toPath().resolve("config.yml");
+        Files.writeString(config, Files.readString(config).replace("    - BEACON", "    - BEACON\n    - COPPER_BLOCK"));
+        PlayerMock admin = mc.admin();
+        mc.run(admin, "dwm reload");
+        String broken = Files.readString(config) + "\nbroken: [no closing bracket\n";
+        Files.writeString(config, broken);
+        messages(admin);
+
+        mc.run(admin, "dwm reload");
+
+        assertThat(messages(admin)).containsExactly(
+                "config.yml has a mistake (YAML error) - the settings from before stay in use. Fix it, then /dwm reload again.");
+        assertThat(Files.readString(config)).isEqualTo(broken);
+        assertThat(mc.plugin.getConfigManager().getRestrictedMaterials()).contains(Material.COPPER_BLOCK);
+    }
+
+    /** docs/problems/dworldmanager-config-typo-runs-on-defaults.md */
+    @Test
+    void aTypoInConfigYmlAtStartKeepsDWorldManagerOffInsteadOfRunningOnTheDefaultDatabase() throws IOException {
+        Path config = mc.plugin.getDataFolder().toPath().resolve("config.yml");
+        String broken = Files.readString(config) + "\nbroken: [no closing bracket\n";
+        Files.writeString(config, broken);
+
+        mc.restart();
+
+        assertThat(mc.plugin.isEnabled()).isFalse();
+        assertThat(Files.readString(config)).isEqualTo(broken);
+    }
 }

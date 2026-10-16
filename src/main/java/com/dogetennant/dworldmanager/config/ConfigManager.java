@@ -41,8 +41,21 @@ public class ConfigManager {
         this.plugin = plugin;
     }
 
-    public void load() {
+    /**
+     * Reads config.yml. A file with a YAML error is not taken for "no settings": the built-in ones
+     * would point dWorldManager at another database (storage.type falls back to sqlite), so the
+     * settings from before stay and the caller decides (at start the plugin stays off).
+     *
+     * @return false when config.yml has an error (nothing changed)
+     */
+    public boolean load() {
         plugin.saveDefaultConfig();
+        try {
+            new org.bukkit.configuration.file.YamlConfiguration().load(new java.io.File(plugin.getDataFolder(), "config.yml"));
+        } catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException e) {
+            plugin.getLogger().severe("config.yml cannot be read, so its settings are not used: " + e.getMessage());
+            return false;
+        }
         plugin.reloadConfig();
 
         debug = plugin.getConfig().getBoolean("debug", false);
@@ -78,6 +91,7 @@ public class ConfigManager {
                 messages.put(key, section.getString(key));
             }
         }
+        return true;
     }
 
     /** Returns the configured message text for this key, or defaultText if not set. Supports "&" colour codes and %placeholder% tokens. */

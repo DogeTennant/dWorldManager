@@ -44,10 +44,20 @@ public class DWorldManager extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
+        // A run stopped before (the same instance enabled again) left its parts behind; onDisable
+        // must only shut down what this run starts - it also runs when this run stays off.
+        databaseQueue = null;
+        databaseManager = null;
 
-        // 1. Config
+        // 1. Config - one with a YAML error keeps dWorldManager off: on the built-in settings it
+        // would run on another database (SQLite, no prefix) without the frozen areas and logs
         configManager = new ConfigManager(this);
-        configManager.load();
+        if (!configManager.load()) {
+            getLogger().severe("config.yml has a mistake (YAML error, see above), so dWorldManager stays off"
+                    + " instead of running on the built-in settings. Fix it and restart the server.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
         // 2. Database
         if (!setupDatabase()) {
